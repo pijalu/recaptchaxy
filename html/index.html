@@ -1,0 +1,45 @@
+<html>
+    <head>
+        <title>Recaptchaxy: test !</title>
+    </head>
+    <body>
+        <h1>Recaptchaxy: test !</h1>
+
+        <div id="result">
+            <p>...here be dragons...</p>
+        </div>
+
+
+        <script src="https://www.google.com/recaptcha/enterprise.js?render=<sitekey>"></script>
+        <script>
+            docall = function(token) {
+                const URL="http://localhost:8080/<somepath>"
+                var xhttp = new XMLHttpRequest();
+                xhttp.onreadystatechange = function() {
+                    if (this.readyState == 4) {
+                        if  (this.status == 200) {
+                            console.log("Got reply", this)
+                            document.getElementById("result").innerHTML = this.responseText;
+                        } else {
+                            console.log("error:", this )
+                            alert("Failed to call: Result was "+this.status)
+                            document.getElementById("result").innerHTML = this.responseText;
+                        }
+                    }
+                };
+                xhttp.open("GET", URL, true);
+                xhttp.setRequestHeader("x-recaptcha-action", "login");
+                xhttp.setRequestHeader("x-recaptcha-site", "<siteKey>");
+                xhttp.setRequestHeader("x-recaptcha-token", token);
+                xhttp.send();
+            }
+
+            grecaptcha.enterprise.ready(function() {
+                grecaptcha.enterprise.execute('<siteKey>', 
+                    {action: 'login'}).then(function(token) {
+                        docall(token);
+                });
+            });
+        </script>
+    </body>
+</html>
