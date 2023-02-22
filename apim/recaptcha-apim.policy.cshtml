@@ -1,0 +1,55 @@
+﻿<!--
+    Name vars:
+    * RC-SITEID: Site ID 
+    * RC-API-KEY: Google Enterprise Recaptcha API key
+    * RC-MIN-SCORE: Min score
+-->
+<policies>
+	<inbound>
+		<!-- Set all variables -->
+		<set-variable name="site-id" value="@(context.Request.Headers.GetValueOrDefault("x-recaptcha-site").Split(' ').Last())" />
+		<set-variable name="token" value="@(context.Request.Headers.GetValueOrDefault("x-recaptcha-token").Split(' ').Last())" />
+		<set-variable name="action" value="@(context.Request.Headers.GetValueOrDefault("x-recaptcha-action","login").Split(' ').Last())" />
+		<set-variable name="url" value="https://recaptchaenterprise.googleapis.com/v1/projects/{{RC-SITEID}}/assessments?key={{RC-API-KEY}}" />
+		<set-variable name="payload" value="@{
+				return String.Format(@"{{
+					'event': {{
+						'token': '{0}',
+						'siteKey': '{1}',
+						'expectedAction': '{2}'
+					}}
+				}}", context.Variables["token"], context.Variables["site-id"], context.Variables["action"]);
+			}" />
+		<!-- Send request to recaptcha -->
+		<send-request mode="new" response-variable-name="recaptcha-result" timeout="10" ignore-error="true">
+			<set-url>@((string)context.Variables["url"])</set-url>
+			<set-method>POST</set-method>
+			<set-header name="Content-Type" exists-action="override">
+				<value>application/json; charset=utf-8</value>
+			</set-header>
+			<set-body>@((string)context.Variables["payload"])</set-body>
+		</send-request>
+
+		<set-variable name="minscore" value="@( (float) {{RC-MIN-SCORE}} )" />
+		<set-variable name="score" value="@(float.Parse( (string)((IResponse)context.Variables["recaptcha-result"]).Body.As<JObject>()["riskAnalysis"]["score"]))" />
+		<choose>
+			<when condition="@( (float) context.Variables["score"] < (float) context.Variables["minscore"] )">
+				<!-- Return 401 Unauthorized with http-problem payload -->
+				<return-response response-variable-name="existing response variable">
+					<set-status code="418" reason="Unauthorized" />
+					<set-body>Teapot error</set-body>
+				</return-response>
+			</when>
+		</choose>
+		<base />
+	</inbound>
+	<backend>
+		<base />
+	</backend>
+	<outbound>
+		<base />
+	</outbound>
+	<on-error>
+		<base />
+	</on-error>
+</policies>
